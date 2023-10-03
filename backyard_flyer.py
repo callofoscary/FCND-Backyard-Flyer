@@ -1,7 +1,7 @@
 import argparse
 import time
 from enum import Enum
-
+from udacicrone.connection import CrazyflieConnection #Crazyflies used CRTP protocol instead of Mavlink
 import numpy as np
 
 from udacidrone import Drone
@@ -22,7 +22,7 @@ class BackyardFlyer(Drone):
 
     def __init__(self, connection):
         super().__init__(connection)
-        self.target_position = np.array([0.0, 0.0, 0.0])
+        self.target_position = np.array([0.0, 0.0, 0.5])
         self.all_waypoints = []
         self.in_mission = True
         self.check_state = {}
@@ -31,25 +31,19 @@ class BackyardFlyer(Drone):
         self.flight_state = States.MANUAL
 
         # TODO: Register all your callbacks here
-        self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)
-        self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)
-        self.register_callback(MsgID.STATE, self.state_callback)
+        self.register_callback(MsgID.LOCAL_POSITION, self.local_position_callback)#Cambiar atributo posicion
+        self.register_callback(MsgID.LOCAL_VELOCITY, self.velocity_callback)#Cambiar atributo Velocidad
+        self.register_callback(MsgID.STATE, self.state_callback)#Cambiar atributo estado
 
     def local_position_callback(self):
-        """
-        TODO: Implement this method
-
-        This triggers when `MsgID.LOCAL_POSITION` is received and self.local_position contains new data
-        """
-        pass
+        if self.flight_state == States.MANUAL:
+            self.takeoff_transition()
 
     def velocity_callback(self):
-        """
-        TODO: Implement this method
+        if self.flight_state == States.LANDING:
+            if abs(self.local_position[2]<0.01):
+                self.manual_transition()
 
-        This triggers when `MsgID.LOCAL_VELOCITY` is received and self.local_velocity contains new data
-        """
-        pass
 
     def state_callback(self):
         """
@@ -57,14 +51,14 @@ class BackyardFlyer(Drone):
 
         This triggers when `MsgID.STATE` is received and self.armed and self.guided contain new data
         """
+        
         pass
 
     def calculate_box(self):
-        """TODO: Fill out this method
-        
-        1. Return waypoints to fly a box
-        """
-        pass
+        cp = self.local_position
+        cp[2]=0
+        local_waypoints = [cp + [1.0, 0.0, 0.5], cp + [1.0, 1.0, 0.5], cp + [0.0, 1.0, 0.5], cp + [0.0, 0.0, 0.5]]
+        return local_waypoints
 
     def arming_transition(self):
         """TODO: Fill out this method
@@ -75,7 +69,13 @@ class BackyardFlyer(Drone):
         4. Transition to the ARMING state
         """
         print("arming transition")
-
+        self.take_control()
+        self.arm
+        self.set_home_position(self.calculate_box[0],
+                               self.calculate_box[1],
+                               self.calculate_box[2],)
+        self.arming_transition
+        
     def takeoff_transition(self):
         """TODO: Fill out this method
         
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument('--host', type=str, default='127.0.0.1', help="host address, i.e. '127.0.0.1'")
     args = parser.parse_args()
 
-    conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), threaded=False, PX4=False)
+    conn = CrazyflieConnection('radio://0/80/2M')
     #conn = WebSocketConnection('ws://{0}:{1}'.format(args.host, args.port))
     drone = BackyardFlyer(conn)
     time.sleep(2)
